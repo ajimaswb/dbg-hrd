@@ -23,6 +23,13 @@ export const generatePayroll = async (yearMonth, workingDaysMonth, workingDaysPa
   });
 
   for (const emp of employees) {
+    // LOGIC AUDIT: Abaikan karyawan non-aktif JIKA mereka resign di bulan-bulan sebelumnya
+    const empResignMonth = emp.resignDate ? emp.resignDate.substring(0, 7) : '';
+    if (emp.status === 'non-aktif') {
+      if (!emp.resignDate) continue; // Tidak ada tanggal keluar, lewati
+      if (empResignMonth < yearMonth) continue; // Sudah keluar di bulan lalu, lewati
+    }
+
     // Filter attendance for this employee
     const empAttendances = allAttendances.filter(a => a.employeeId === emp.id);
     
@@ -46,7 +53,8 @@ export const generatePayroll = async (yearMonth, workingDaysMonth, workingDaysPa
       if (att.status === 'cuti') totalCuti += 1;
       if (att.status === 'hadir_sebagian' && att.actual_hours !== undefined) {
         // Normal 9 jam. Jika kerja kurang dari 9 jam, selisihnya dihitung absen.
-        const absenHari = (9 - att.actual_hours) / 9;
+        // LOGIC AUDIT: Gunakan Math.max untuk mencegah bug jam minus yang berakibat penambahan gaji
+        const absenHari = Math.max(0, 9 - att.actual_hours) / 9;
         totalHariAbsen += absenHari;
       }
       if (att.ot_hours) totalOTHours += att.ot_hours;
@@ -65,17 +73,55 @@ export const generatePayroll = async (yearMonth, workingDaysMonth, workingDaysPa
     const potonganAbsen = Math.round(dailyWage * totalHariAbsen); 
     
     // 3. Hitung Gaji Pokok Prorata = (Daily Rate x (HariKerjaBerjalan - HariAbsen))
-    const totalHariHadir = Math.max(0, workingDaysPassed - totalHariAbsen);
+    
+    // LOGIC AUDIT: Hitung workingDaysPassed secara individual jika karyawan baru masuk atau keluar di bulan ini
+    let individualWorkingDaysPassed = workingDaysPassed;
+    const empJoinMonth = emp.joinDate ? emp.joinDate.substring(0, 7) : '';
+    const isFirstMonth = empJoinMonth === yearMonth;
+    const isResignMonth = emp.status === 'non-aktif' && empResignMonth === yearMonth;
+
+    if ((isFirstMonth && emp.joinDate) || (isResignMonth && emp.resignDate)) {
+      const [year, month] = yearMonth.split('-').map(Number);
+      
+      const startDate = (isFirstMonth && emp.joinDate) ? new Date(emp.joinDate) : new Date(year, month - 1, 1);
+      
+      let endDateObj = new Date(year, month, 0); // Akhir bulan secara default
+      const today = new Date();
+      if (today.getFullYear() === year && today.getMonth() === month - 1) {
+        endDateObj = today; // Jika sedang berjalan, hitung sampai hari ini
+      }
+      if (isResignMonth && emp.resignDate) {
+        const resignDateObj = new Date(emp.resignDate);
+        if (resignDateObj < endDateObj) {
+          endDateObj = resignDateObj; // Hitung hanya sampai tanggal resign
+        }
+      }
+
+      individualWorkingDaysPassed = 0;
+      for (let d = new Date(startDate); d <= endDateObj; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() !== 0) { // Bukan hari Minggu
+          individualWorkingDaysPassed++;
+        }
+      }
+    }
+
+    const totalHariHadir = Math.max(0, individualWorkingDaysPassed - totalHariAbsen);
     const gajiPokokProrata = Math.round(dailyWage * totalHariHadir);
 
     // Koperasi Logic
     // Simpanan Wajib Koperasi dipotong setiap bulan
     // Simpanan Pokok Koperasi (tambahan) hanya dipotong di bulan pertama (Join Date)
-    const empJoinMonth = emp.joinDate ? emp.joinDate.substring(0, 7) : '';
-    const isFirstMonth = empJoinMonth === yearMonth;
     
     const wajibKoperasi = comps.potongan_koperasi_wajib || 0;
     const pokokKoperasi = isFirstMonth ? (comps.potongan_pokok_koperasi || 0) : 0;
+
+    // LOGIC AUDIT: Tunjangan Absen HANGUS jika ada 1 Alfa/Izin/Sakit
+    const baseTunjanganAbsen = comps.tunjangan_absen || 0;
+    const finalTunjanganAbsen = (totalAlfa > 0 || totalIzin > 0 || totalSakit > 0) ? 0 : baseTunjanganAbsen;
+
+    // LOGIC AUDIT: Tunjangan Transport diprorata berdasarkan rasio kehadiran terhadap total hari kerja bulan ini
+    const baseTunjanganTransport = comps.tunjangan_transport || 0;
+    const finalTunjanganTransport = Math.round((baseTunjanganTransport / workingDaysMonth) * totalHariHadir);
 
     // Pendapatan
     // Di sini kita gunakan gajiPokokProrata sebagai pengganti GajiPokok utuh jika di tengah bulan
@@ -84,8 +130,8 @@ export const generatePayroll = async (yearMonth, workingDaysMonth, workingDaysPa
       + (comps.tunjangan_skill || 0) 
       + (comps.tunjangan_jabatan || 0)
       + (comps.tunjangan_insentif || 0)
-      + (comps.tunjangan_transport || 0)
-      + (comps.tunjangan_absen || 0)
+      + finalTunjanganTransport
+      + finalTunjanganAbsen
       + totalOTPay;
     
     // Potongan Tetap
@@ -118,8 +164,8 @@ export const generatePayroll = async (yearMonth, workingDaysMonth, workingDaysPa
         tunjanganSkill: comps.tunjangan_skill || 0,
         tunjanganJabatan: comps.tunjangan_jabatan || 0,
         tunjanganInsentif: comps.tunjangan_insentif || 0,
-        tunjanganTransport: comps.tunjangan_transport || 0,
-        tunjanganAbsen: comps.tunjangan_absen || 0,
+        tunjanganTransport: finalTunjanganTransport,
+        tunjanganAbsen: finalTunjanganAbsen,
         totalOTHours,
         totalOTPay,
         potonganBpjsTk: comps.potongan_bpjs_tk || 0,

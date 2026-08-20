@@ -13,6 +13,22 @@ export const saveAttendance = async (date, employeeId, data) => {
   const docId = `${date}_${employeeId}`;
   const docRef = doc(db, 'attendance', docId);
   
+  // LOGIC AUDIT: Validasi data di level backend untuk mencegah inkonsistensi
+  // 1. Orang yang sakit, izin, alfa, atau cuti TIDAK BOLEH punya jam lembur
+  if (['sakit', 'izin', 'alfa', 'cuti'].includes(data.status)) {
+    data.ot_hours = 0;
+  }
+  
+  // 2. Cegah input jam negatif (contoh: diakali oleh AI atau glitch UI)
+  if (data.ot_hours !== undefined) {
+    data.ot_hours = Math.max(0, Number(data.ot_hours) || 0);
+  }
+  
+  // 3. Batasi actual_hours untuk hadir_sebagian maksimal 9 jam dan minimal 0
+  if (data.status === 'hadir_sebagian' && data.actual_hours !== undefined) {
+    data.actual_hours = Math.min(9, Math.max(0, Number(data.actual_hours) || 0));
+  }
+
   await setDoc(docRef, {
     date,
     employeeId,

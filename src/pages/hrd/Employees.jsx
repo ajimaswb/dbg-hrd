@@ -92,6 +92,7 @@ export default function Employees() {
     potongan_simpanan_bersama: '',
     potongan_angsuran_koperasi: '',
     joinDate: '',
+    resignDate: '',
     bankName: 'BCA',
     bankAccount: ''
   });
@@ -176,6 +177,7 @@ export default function Employees() {
       potongan_simpanan_bersama: '',
       potongan_angsuran_koperasi: '',
       joinDate: '',
+      resignDate: '',
       bankName: 'BCA',
       bankAccount: ''
     });
@@ -208,6 +210,7 @@ export default function Employees() {
       potongan_simpanan_bersama: formatCurrency(emp.components?.potongan_simpanan_bersama),
       potongan_angsuran_koperasi: formatCurrency(emp.components?.potongan_angsuran_koperasi),
       joinDate: emp.joinDate || '',
+      resignDate: emp.resignDate || '',
       bankName: emp.bankName || 'BCA',
       bankAccount: emp.bankAccount || ''
     });
@@ -228,6 +231,7 @@ export default function Employees() {
         status: formData.status,
         position: formData.position,
         joinDate: formData.joinDate,
+        resignDate: formData.status === 'non-aktif' ? formData.resignDate : '', // Hanya simpan resignDate jika non-aktif
         bankName: formData.bankName,
         bankAccount: formData.bankAccount,
         components: {
@@ -314,6 +318,7 @@ export default function Employees() {
           'Jabatan': emp.position,
           'Line': emp.line || '-',
           'Tanggal Bergabung': formatDate(emp.joinDate),
+          'Tanggal Keluar': emp.status === 'non-aktif' ? formatDate(emp.resignDate) : '-',
           'Gaji Pokok (Rp)': c.gaji_pokok || 0,
           'Tunjangan Masa Kerja (Rp)': c.tunjangan_masa_kerja || 0,
           'Tunjangan Skill (Rp)': c.tunjangan_skill || 0,
@@ -618,6 +623,19 @@ export default function Employees() {
                       <label className="block text-sm text-slate-600 dark:text-slate-300 mb-1">Tanggal Masuk</label>
                       <input name="joinDate" type="date" value={formData.joinDate} onChange={handleChange} className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:bg-slate-800 focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
                     </div>
+                    <div>
+                      <label className="block text-sm text-slate-600 dark:text-slate-300 mb-1">Status Karyawan</label>
+                      <select name="status" value={formData.status} onChange={handleChange} className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:bg-slate-800 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 font-medium">
+                        <option value="aktif">Aktif</option>
+                        <option value="non-aktif">Non-Aktif (Resign)</option>
+                      </select>
+                    </div>
+                    {formData.status === 'non-aktif' && (
+                      <div>
+                        <label className="block text-sm text-red-600 dark:text-red-400 mb-1 font-medium">Tanggal Keluar (Resign)</label>
+                        <input name="resignDate" type="date" value={formData.resignDate} onChange={handleChange} required className="w-full border border-red-300 dark:border-red-500/50 rounded-lg px-3 py-2 bg-red-50 dark:bg-red-900/20 focus:bg-white dark:bg-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                      </div>
+                    )}
                     <div>
                       <label className="block text-sm text-slate-600 dark:text-slate-300 mb-1">Nama Bank</label>
                       <select name="bankName" value={formData.bankName} onChange={handleChange} className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:bg-slate-800 focus:border-sky-500 focus:ring-1 focus:ring-sky-500">
