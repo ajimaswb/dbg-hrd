@@ -129,7 +129,7 @@ ATURAN JAWABAN:
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-flash-latest",
+      model: "gemini-1.5-flash",
       systemInstruction,
       tools: [hrTools]
     });
@@ -233,9 +233,9 @@ ATURAN JAWABAN:
         return finalReply;
         
       } catch (err) {
-        if (err.message && (err.message.includes('429') || err.message.includes('Quota exceeded'))) {
+        if (err.message && (err.message.includes('429') || err.message.includes('Quota') || err.message.includes('503'))) {
           if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+            await new Promise(resolve => setTimeout(resolve, 3000 * (attempt + 1)));
             attempt++;
             continue;
           }
@@ -245,10 +245,14 @@ ATURAN JAWABAN:
     }
 
   } catch (error) {
-    if (error.message && (error.message.includes('429') || error.message.includes('Quota exceeded'))) {
+    const errorMsg = error.message || '';
+    if (errorMsg.includes('429') || errorMsg.includes('Quota')) {
       throw new Error('Wah, maaf ya, saya sedang kelelahan dan butuh istirahat sejenak (Limit API tercapai). 😴');
     }
-    throw new Error(`Gagal menghubungi AI Assistant: ${error.message}`);
+    if (errorMsg.includes('503') || errorMsg.includes('overloaded')) {
+      throw new Error('Server AI Google saat ini sedang sangat sibuk (Error 503). Mohon tunggu beberapa saat dan coba tanyakan lagi. 🔌');
+    }
+    throw new Error(`Gagal menghubungi AI Assistant: ${errorMsg}`);
   }
 };
 
