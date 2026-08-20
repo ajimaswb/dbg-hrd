@@ -129,7 +129,7 @@ ATURAN JAWABAN:
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-flash-latest",
+      model: "gemini-3.5-flash",
       systemInstruction,
       tools: [hrTools]
     });
