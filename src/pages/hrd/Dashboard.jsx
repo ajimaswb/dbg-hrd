@@ -433,7 +433,7 @@ export default function HrdDashboard() {
                         key={line} 
                         yAxisId="left" 
                         dataKey={`hadir_${line}`} 
-                        name={`Hadir Line ${line}`} 
+                        name={`Line ${line}`} 
                         fill={COLORS[index % COLORS.length]} 
                         radius={[4, 4, 0, 0]} 
                         maxBarSize={40} 
