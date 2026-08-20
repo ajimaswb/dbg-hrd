@@ -130,49 +130,60 @@ export default function HrdDashboard() {
 
   useEffect(() => {
     const fetchLineChartData = async () => {
-      if (employees.length === 0) return;
+      if (employees.length === 0 || availableLines.length === 0) return;
       setLineChartLoading(true);
       try {
         const records = await getAttendanceByDateRange(lineStartDate, lineEndDate);
         
-        // calculate days difference
         const start = new Date(lineStartDate);
         const end = new Date(lineEndDate);
-        let workingDays = 0;
         
+        const dateRange = [];
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          if (d.getDay() !== 0) workingDays++; // Exclude Sundays
+          if (d.getDay() !== 0) { // Exclude Sundays
+            dateRange.push(new Date(d).toISOString().split('T')[0]);
+          }
         }
         
-        if (workingDays === 0) workingDays = 1;
-
-        const linesData = {};
-        employees.forEach(emp => {
-          if (emp.line) {
-            if (!linesData[emp.line]) {
-              linesData[emp.line] = { name: `Line ${emp.line}`, hadir: 0, absen: 0, total: 0 };
-            }
-            linesData[emp.line].total += 1;
+        const isAllSelected = selectedLines.length === availableLines.length || selectedLines.length === 0;
+        
+        const chartData = dateRange.map(dateStr => {
+          const dObj = new Date(dateStr);
+          const name = `${dObj.getDate().toString().padStart(2, '0')}/${(dObj.getMonth()+1).toString().padStart(2, '0')}`;
+          const result = { dateStr, name };
+          
+          if (isAllSelected) {
+            let hadir = 0;
+            let absen = 0;
+            const lineEmployees = employees.filter(e => e.line && e.line !== '-');
             
-            // Get records for this employee within the date range
-            const empRecords = records.filter(r => r.employeeId === emp.id && r.status !== 'hadir' && r.status !== 'hadir_sebagian');
-            
-            const exceptionCount = empRecords.length;
-            const presenceCount = workingDays - exceptionCount;
-            
-            linesData[emp.line].absen += exceptionCount;
-            linesData[emp.line].hadir += (presenceCount > 0 ? presenceCount : 0);
+            lineEmployees.forEach(emp => {
+               const record = records.find(r => r.employeeId === emp.id && r.date === dateStr);
+               if (record && record.status !== 'hadir' && record.status !== 'hadir_sebagian') {
+                 absen++;
+               } else {
+                 hadir++;
+               }
+            });
+            result.hadir_total = hadir;
+            result.absen_total = absen;
+          } else {
+            selectedLines.forEach(line => {
+              let hadir = 0;
+              const lineEmployees = employees.filter(e => e.line === line);
+              lineEmployees.forEach(emp => {
+                 const record = records.find(r => r.employeeId === emp.id && r.date === dateStr);
+                 if (!record || (record.status === 'hadir' || record.status === 'hadir_sebagian')) {
+                   hadir++;
+                 }
+              });
+              result[`hadir_${line}`] = hadir;
+            });
           }
+          return result;
         });
 
-        const lineChartData = Object.values(linesData)
-          .map(line => ({
-            ...line,
-            persentase: (line.total > 0 && workingDays > 0) ? Number(((line.hadir / (line.total * workingDays)) * 100).toFixed(1)) : 0
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
-        setAttendanceByLineData(lineChartData);
-
+        setAttendanceByLineData(chartData);
       } catch (error) {
         console.error(error);
       } finally {
@@ -181,7 +192,7 @@ export default function HrdDashboard() {
     };
     
     fetchLineChartData();
-  }, [lineStartDate, lineEndDate, employees]);
+  }, [lineStartDate, lineEndDate, employees, selectedLines, availableLines]);
 
   // Compute department composition (Sewing vs Non-Sewing)
   const deptCounts = employees.reduce((acc, emp) => {
