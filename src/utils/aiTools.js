@@ -3,7 +3,9 @@ import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firesto
 
 // 1. Cari Karyawan
 export const cariKaryawan = async (keyword) => {
-  const kw = keyword.toLowerCase();
+  const kw = keyword.toLowerCase().trim();
+  const cleanLineKw = kw.replace(/line\s*/g, '').trim(); // Untuk case keyword "line 7" -> "7"
+
   const snap = await getDocs(collection(db, 'employees'));
   const results = [];
   
@@ -12,14 +14,20 @@ export const cariKaryawan = async (keyword) => {
     const nameMatch = data.name && data.name.toLowerCase().includes(kw);
     const nikMatch = data.nik && data.nik.toLowerCase().includes(kw);
     const deptMatch = data.department && data.department.toLowerCase().includes(kw);
+    const posMatch = data.position && data.position.toLowerCase().includes(kw);
+    const lineMatch = data.line && (
+      String(data.line).toLowerCase().includes(kw) || 
+      String(data.line).toLowerCase() === cleanLineKw
+    );
     
-    if (nameMatch || nikMatch || deptMatch) {
+    if (nameMatch || nikMatch || deptMatch || posMatch || lineMatch) {
       results.push({
         id: docSnap.id,
         nik: data.nik,
         nama: data.name,
         department: data.department,
         position: data.position,
+        line: data.line || '-',
         gajiPokok: data.baseSalary || data.components?.gaji_pokok || 0,
         tanggalBergabung: data.joinDate
       });
