@@ -111,3 +111,44 @@ export const ringkasanDepartemen = async () => {
 
   return { total_seluruh_karyawan: totalKaryawan, jumlah_per_departemen: stats };
 };
+
+// 5. Proses Payroll
+import { generatePayroll } from './payrollService';
+
+export const prosesPayrollOtomatis = async (bulan) => {
+  // bulan format YYYY-MM
+  const [year, m] = bulan.split('-').map(Number);
+  
+  // Hitung total hari kerja (sebulan penuh, tanpa hari Minggu)
+  let workingDaysMonth = 0;
+  const totalDays = new Date(year, m, 0).getDate();
+  for (let i = 1; i <= totalDays; i++) {
+    const d = new Date(year, m - 1, i);
+    if (d.getDay() !== 0) workingDaysMonth++; // Bukan hari Minggu
+  }
+
+  // Hitung hari kerja berjalan
+  let workingDaysPassed = workingDaysMonth;
+  const today = new Date();
+  if (today.getFullYear() === year && today.getMonth() === m - 1) {
+    workingDaysPassed = 0;
+    for (let i = 1; i <= today.getDate(); i++) {
+      const d = new Date(year, m - 1, i);
+      if (d.getDay() !== 0) workingDaysPassed++;
+    }
+  } else if (new Date(year, m - 1, totalDays) > today) {
+    workingDaysPassed = 0; // Bulan di masa depan
+  }
+
+  try {
+    const result = await generatePayroll(bulan, workingDaysMonth, workingDaysPassed);
+    return { 
+      pesan: `Berhasil memproses payroll untuk periode ${bulan}`,
+      jumlah_karyawan_diproses: result.length,
+      asumsi_hari_kerja_sebulan: workingDaysMonth,
+      asumsi_hari_kerja_berjalan: workingDaysPassed
+    };
+  } catch (error) {
+    return { error: `Gagal memproses payroll: ${error.message}` };
+  }
+};

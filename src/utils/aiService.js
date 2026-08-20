@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createEmployee } from './employeeService';
 import { saveAttendance } from './attendanceService';
 import { getMemory, saveMemory } from './memoryService';
-import { cariKaryawan, lihatAbsensi, lihatSlipGaji, ringkasanDepartemen } from './aiTools';
+import { cariKaryawan, lihatAbsensi, lihatSlipGaji, ringkasanDepartemen, prosesPayrollOtomatis } from './aiTools';
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(apiKey);
@@ -86,6 +86,17 @@ const hrTools = {
         type: "OBJECT",
         properties: {}
       }
+    },
+    {
+      name: "prosesPayroll",
+      description: "Memproses/mengalkulasi ulang seluruh gaji/payroll karyawan secara massal pada bulan tertentu.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          bulan: { type: "STRING", description: "Bulan dengan format YYYY-MM (contoh: 2026-08). Jika diminta bulan ini, gunakan bulan berjalan." }
+        },
+        required: ["bulan"]
+      }
     }
   ]
 };
@@ -115,6 +126,7 @@ Anda memiliki ALAT (Tools) untuk mencari data ke database secara real-time.
 1. Jika ditanya soal data karyawan, gunakan tool 'cariKaryawan' DAHULU. Jangan mengarang data!
 2. Jika butuh employeeId tapi belum tahu, panggil 'cariKaryawan' dulu, setelah dapat hasilnya, otomatis panggil tool 'lihatAbsensi' atau 'lihatSlipGaji' menggunakan ID tersebut. (Berpikir berantai).
 3. Jika ditanya soal total karyawan perusahaan, gunakan 'ringkasanDepartemen'.
+4. Jika disuruh memproses/kalkulasi gaji/payroll seluruh karyawan secara massal, gunakan 'prosesPayroll'.
 
 Navigasi UI:
 - Ke Dashboard: [NAVIGATE:/hrd]
@@ -190,6 +202,9 @@ ATURAN JAWABAN:
               }
               else if (call.name === 'ringkasanDepartemen') {
                 responseData = await ringkasanDepartemen();
+              }
+              else if (call.name === 'prosesPayroll') {
+                responseData = await prosesPayrollOtomatis(call.args.bulan);
               }
               else {
                 responseData = { error: "Fungsi tidak dikenali" };
