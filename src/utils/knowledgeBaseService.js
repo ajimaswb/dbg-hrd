@@ -8,7 +8,7 @@
  * Format cache dirancang agar sangat ringkas sehingga hemat token API.
  */
 import { db } from '../firebase';
-import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
 const KB_DOC_ID = 'hr_knowledge_base';
 const KB_COLLECTION = 'ai_knowledge';
@@ -16,7 +16,7 @@ const KB_COLLECTION = 'ai_knowledge';
 // ─── Builder ──────────────────────────────────────────────────────────────────
 
 /**
- * Membaca semua data dari Firestore dan membangun knowledge cache terkompresi.
+ * Membaca data bulan ini dari Firestore dan membangun knowledge cache terkompresi.
  * Harus dipanggil secara eksplisit (dari tombol UI atau setelah ada perubahan data).
  * 
  * @returns {Promise<object>} knowledge base yang baru dibangun
@@ -25,11 +25,18 @@ export const buildKnowledgeBase = async () => {
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  // 1. Ambil semua data mentah secara paralel
+  // 1. Ambil data secara paralel dengan filter khusus bulan ini untuk hemat kuota baca
   const [empSnap, attSnap, paySnap] = await Promise.all([
     getDocs(collection(db, 'employees')),
-    getDocs(collection(db, 'attendance')),
-    getDocs(collection(db, 'payrolls')),
+    getDocs(query(
+      collection(db, 'attendance'), 
+      where('date', '>=', `${currentMonth}-01`), 
+      where('date', '<=', `${currentMonth}-31`)
+    )),
+    getDocs(query(
+      collection(db, 'payrolls'),
+      where('period', '==', currentMonth)
+    )),
   ]);
 
   const employees = empSnap.docs.map(d => ({ id: d.id, ...d.data() }));

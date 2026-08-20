@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Fungsi pembantu (Helper Functions)
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isHRD() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'admin@dbg.com' || 
+        request.auth.token.email == 'hrd@dbg.com' ||
+        get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.role == 'hrd'
+      );
+    }
+    
+    function isOwner(employeeId) {
+      return isAuthenticated() && request.auth.uid == employeeId;
+    }
+
+    // 1. Koleksi Karyawan (Employees)
+    match /employees/{employeeId} {
+      // Karyawan hanya bisa melihat data mereka sendiri. HRD bisa melihat semua.
+      allow read: if isOwner(employeeId) || isHRD();
+      // Hanya HRD yang boleh menambah/mengubah data karyawan
+      allow write: if isHRD();
+    }
+
+    // 2. Koleksi Absensi (Attendance)
+    match /attendance/{docId} {
+      // Karyawan hanya bisa melihat absensi mereka sendiri (dicek dari field employeeId)
+      allow read: if isHRD() || (isAuthenticated() && resource.data.employeeId == request.auth.uid);
+      // Create data absensi hanya oleh HRD
+      allow write: if isHRD();
+    }
+
+    // 3. Koleksi Gaji (Payrolls)
+    match /payrolls/{docId} {
+      // Karyawan hanya bisa melihat slip gaji mereka sendiri
+      allow read: if isHRD() || (isAuthenticated() && resource.data.employeeId == request.auth.uid);
+      allow write: if isHRD();
+    }
+
+    // 4. Koleksi Memori AI & Knowledge Base (Khusus HRD)
+    match /ai_memory/{docId} {
+      allow read, write: if isHRD();
+    }
+    
+    match /ai_knowledge/{docId} {
+      allow read, write: if isHRD();
+    }
+  }
+}
