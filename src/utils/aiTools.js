@@ -35,9 +35,7 @@ export const lihatAbsensi = async (employeeId, bulan) => {
   // bulan format YYYY-MM
   const q = query(
     collection(db, 'attendance'),
-    where('employeeId', '==', employeeId),
-    where('date', '>=', `${bulan}-01`),
-    where('date', '<=', `${bulan}-31`)
+    where('employeeId', '==', employeeId)
   );
   
   const snap = await getDocs(q);
@@ -46,16 +44,20 @@ export const lihatAbsensi = async (employeeId, bulan) => {
 
   snap.forEach(docSnap => {
     const data = docSnap.data();
-    ringkasan.total_record++;
     
-    const s = data.status?.toLowerCase();
-    if (s === 'alfa') ringkasan.alfa++;
-    if (s === 'izin') ringkasan.izin++;
-    if (s === 'sakit') ringkasan.sakit++;
-    if (s === 'cuti') ringkasan.cuti++;
-    if (data.ot_hours) ringkasan.jam_lembur += data.ot_hours;
+    // Filter manual berdasarkan bulan untuk menghindari error Composite Index di Firestore
+    if (data.date && data.date.startsWith(bulan)) {
+      ringkasan.total_record++;
+      
+      const s = data.status?.toLowerCase();
+      if (s === 'alfa') ringkasan.alfa++;
+      if (s === 'izin') ringkasan.izin++;
+      if (s === 'sakit') ringkasan.sakit++;
+      if (s === 'cuti') ringkasan.cuti++;
+      if (data.ot_hours) ringkasan.jam_lembur += data.ot_hours;
 
-    rincian.push({ tanggal: data.date, status: data.status, lembur: data.ot_hours, catatan: data.notes });
+      rincian.push({ tanggal: data.date, status: data.status, lembur: data.ot_hours, catatan: data.notes });
+    }
   });
 
   return { ringkasan, rincian };
@@ -65,16 +67,19 @@ export const lihatAbsensi = async (employeeId, bulan) => {
 export const lihatSlipGaji = async (employeeId, bulan) => {
   const q = query(
     collection(db, 'payrolls'),
-    where('employeeId', '==', employeeId),
-    where('period', '==', bulan)
+    where('employeeId', '==', employeeId)
   );
   
   const snap = await getDocs(q);
-  if (snap.empty) return { pesan: `Tidak ada data gaji untuk periode ${bulan}` };
   
-  const p = snap.docs[0].data();
+  // Filter manual untuk periode agar tidak perlu Composite Index
+  const matchingDoc = snap.docs.find(docSnap => docSnap.data().period === bulan);
+  
+  if (!matchingDoc) return { pesan: `Tidak ada data gaji untuk periode ${bulan}` };
+  
+  const p = matchingDoc.data();
   return {
-    id: snap.docs[0].id,
+    id: matchingDoc.id,
     periode: p.period,
     status: p.status,
     pendapatan: {
