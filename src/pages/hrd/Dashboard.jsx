@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Clock, FileSpreadsheet, Building2, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { Users, Clock, FileSpreadsheet, Building2, TrendingUp, CheckCircle2, Filter } from 'lucide-react';
 import { PieChart, Pie, Cell, ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -24,14 +24,34 @@ export default function HrdDashboard() {
   const [lineChartLoading, setLineChartLoading] = useState(false);
   
   const todayDateStr = new Date().toISOString().split('T')[0];
-  const [lineStartDate, setLineStartDate] = useState(todayDateStr);
+  const [lineStartDate, setLineStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    return d.toISOString().split('T')[0];
+  });
   const [lineEndDate, setLineEndDate] = useState(todayDateStr);
+  const [availableLines, setAvailableLines] = useState([]);
+  const [selectedLines, setSelectedLines] = useState([]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const monthsIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   const currentMonthName = `${monthsIndo[new Date().getMonth()]} ${new Date().getFullYear()}`;
 
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+
+
+  const handleLineToggle = (line) => {
+    setSelectedLines(prev => 
+      prev.includes(line) ? prev.filter(l => l !== line) : [...prev, line]
+    );
+  };
+  
+  const handleSelectAllLines = () => {
+    setSelectedLines(availableLines);
+  };
+
+  const isAllSelected = selectedLines.length === availableLines.length || selectedLines.length === 0;
 
   const hour = new Date().getHours();
   let greeting = 'Pagi';
@@ -50,6 +70,11 @@ export default function HrdDashboard() {
           getAttendanceByMonth(yearMonth)
         ]);
         setEmployees(empData);
+        
+        const lines = [...new Set(empData.filter(e => e.line && e.line !== '-').map(e => e.line))]
+          .sort((a, b) => String(a).localeCompare(String(b), undefined, {numeric: true}));
+        setAvailableLines(lines);
+        setSelectedLines(lines);
         
         // Calculate current week Mon-Sat
         const curr = new Date();
@@ -286,7 +311,7 @@ export default function HrdDashboard() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
                 <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} domain={[0, 100]} />
+                
                 <RechartsTooltip 
                   cursor={{fill: '#f8fafc'}}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
@@ -307,20 +332,62 @@ export default function HrdDashboard() {
               <Building2 size={18} className="mr-2 text-slate-400 dark:text-slate-500" /> Kehadiran Tiap Line
             </h3>
             
-            <div className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-xl border border-slate-200 dark:border-slate-600">
-              <input 
-                type="date"
-                value={lineStartDate}
-                onChange={e => setLineStartDate(e.target.value)}
-                className="text-sm bg-transparent border-none focus:ring-0 text-slate-600 dark:text-slate-300 py-1 [color-scheme:light] dark:[color-scheme:dark]"
-              />
-              <span className="text-slate-400">-</span>
-              <input 
-                type="date"
-                value={lineEndDate}
-                onChange={e => setLineEndDate(e.target.value)}
-                className="text-sm bg-transparent border-none focus:ring-0 text-slate-600 dark:text-slate-300 py-1 [color-scheme:light] dark:[color-scheme:dark]"
-              />
+            <div className="flex items-center space-x-2 relative">
+              <div className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-xl border border-slate-200 dark:border-slate-600">
+                <input 
+                  type="date"
+                  value={lineStartDate}
+                  onChange={e => setLineStartDate(e.target.value)}
+                  className="text-sm bg-transparent border-none focus:ring-0 text-slate-600 dark:text-slate-300 py-1 [color-scheme:light] dark:[color-scheme:dark]"
+                />
+                <span className="text-slate-400">-</span>
+                <input 
+                  type="date"
+                  value={lineEndDate}
+                  onChange={e => setLineEndDate(e.target.value)}
+                  className="text-sm bg-transparent border-none focus:ring-0 text-slate-600 dark:text-slate-300 py-1 [color-scheme:light] dark:[color-scheme:dark]"
+                />
+              </div>
+
+              <button 
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className="p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative"
+                title="Filter Line"
+              >
+                <Filter size={18} />
+                {!isAllSelected && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-slate-800"></span>
+                )}
+              </button>
+
+              {isFilterOpen && (
+                <div className="absolute top-full mt-2 right-0 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-100 dark:border-slate-700 p-4 z-10">
+                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100 dark:border-slate-700">
+                    <span className="font-medium text-slate-800 dark:text-white">Filter Line</span>
+                    <button 
+                      onClick={handleSelectAllLines}
+                      className="text-xs text-sky-500 hover:text-sky-600 font-medium"
+                    >
+                      Pilih Semua
+                    </button>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto space-y-2">
+                    {availableLines.map(line => (
+                      <label key={line} className="flex items-center space-x-3 cursor-pointer group">
+                        <input 
+                          type="checkbox"
+                          checked={selectedLines.includes(line)}
+                          onChange={() => handleLineToggle(line)}
+                          className="w-4 h-4 text-sky-500 border-slate-300 rounded focus:ring-sky-500 focus:ring-2 bg-slate-50 dark:bg-slate-900 dark:border-slate-600"
+                        />
+                        <span className="text-sm text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                          Line {line}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -338,15 +405,30 @@ export default function HrdDashboard() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
                   <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                  <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} domain={[0, 100]} />
+                  
                   <RechartsTooltip 
                     cursor={{fill: '#f8fafc'}}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
                   <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '20px' }} />
-                  <Bar yAxisId="left" dataKey="hadir" name="Hadir" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                  <Bar yAxisId="left" dataKey="absen" name="Absensi" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                  <Line yAxisId="right" type="monotone" dataKey="persentase" name="% Kehadiran" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                  {isAllSelected ? (
+                    <>
+                      <Bar yAxisId="left" dataKey="hadir_total" name="Total Hadir" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                      <Bar yAxisId="left" dataKey="absen_total" name="Total Absen" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                    </>
+                  ) : (
+                    selectedLines.map((line, index) => (
+                      <Bar 
+                        key={line} 
+                        yAxisId="left" 
+                        dataKey={`hadir_${line}`} 
+                        name={`Hadir Line ${line}`} 
+                        fill={COLORS[index % COLORS.length]} 
+                        radius={[4, 4, 0, 0]} 
+                        maxBarSize={40} 
+                      />
+                    ))
+                  )}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
