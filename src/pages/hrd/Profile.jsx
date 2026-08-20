@@ -4,7 +4,6 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { updateProfile, updateEmail, updatePassword, verifyBeforeUpdateEmail } from 'firebase/auth';
 import { Moon, Sun, User, Mail, Lock, Save, AlertCircle, DatabaseZap, BrainCircuit, RefreshCw, Loader2, Bot, CheckCircle2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { buildKnowledgeBase, getKnowledgeBase } from '../../utils/knowledgeBaseService';
 import { clearMemory, getMemory } from '../../utils/memoryService';
 import { getEmployees, deleteEmployee } from '../../utils/employeeService';
 
@@ -18,9 +17,6 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // AI Knowledge Base state
-  const [kbStatus, setKbStatus] = useState('checking'); // 'checking' | 'ready' | 'missing' | 'building'
-  const [kbInfo, setKbInfo] = useState(null);
   const [memoryStatus, setMemoryStatus] = useState('checking'); // 'checking' | 'has_memory' | 'empty'
   const [isResettingMemory, setIsResettingMemory] = useState(false);
 
@@ -31,16 +27,8 @@ export default function Profile() {
     }
   }, [currentUser]);
 
-  // Cek status KB dan Memory saat halaman dibuka
+  // Cek status Memory saat halaman dibuka
   useEffect(() => {
-    getKnowledgeBase().then(kb => {
-      if (kb) {
-        setKbStatus('ready');
-        setKbInfo({ builtAt: kb.builtAt, totalKary: kb.globalSummary?.totalKary || 0, currentMonth: kb.currentMonth });
-      } else {
-        setKbStatus('missing');
-      }
-    });
     getMemory().then(mem => {
       setMemoryStatus(mem ? 'has_memory' : 'empty');
     });
@@ -110,18 +98,6 @@ export default function Profile() {
     }
   };
 
-  const handleBuildKB = async () => {
-    setKbStatus('building');
-    try {
-      const kb = await buildKnowledgeBase();
-      setKbStatus('ready');
-      setKbInfo({ builtAt: kb.builtAt, totalKary: kb.globalSummary?.totalKary || 0, currentMonth: kb.currentMonth });
-      toast.success(`Knowledge Base berhasil dibangun! (${kb.globalSummary?.totalKary || 0} karyawan)`);
-    } catch (e) {
-      setKbStatus('missing');
-      toast.error('Gagal membangun Knowledge Base: ' + e.message);
-    }
-  };
 
   const handleResetMemory = async () => {
     setIsResettingMemory(true);
@@ -297,42 +273,6 @@ export default function Profile() {
         </h2>
 
         <div className="space-y-4">
-          {/* Knowledge Base */}
-          <div className="flex items-start justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
-                <DatabaseZap size={16} className={kbStatus === 'ready' ? 'text-emerald-500' : 'text-amber-500'} />
-                Knowledge Base AI
-              </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Indeks terkompresi dari seluruh data karyawan, absensi, dan payroll. Wajib dibangun agar AI hemat token.
-              </p>
-              {kbStatus === 'ready' && kbInfo && (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1">
-                  <CheckCircle2 size={12} />
-                  Aktif — {kbInfo.totalKary} karyawan · Diperbarui: {new Date(kbInfo.builtAt).toLocaleString('id-ID')}
-                </p>
-              )}
-              {kbStatus === 'missing' && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">⚠️ Belum dibangun — AI tidak bisa mengakses data karyawan.</p>
-              )}
-            </div>
-            <button
-              onClick={handleBuildKB}
-              disabled={kbStatus === 'building'}
-              className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
-                kbStatus === 'missing'
-                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-              }`}
-            >
-              {kbStatus === 'building'
-                ? <><Loader2 size={14} className="animate-spin" /> Membangun...</>
-                : kbStatus === 'missing'
-                ? <><DatabaseZap size={14} /> Build KB</>
-                : <><RefreshCw size={14} /> Perbarui KB</>}
-            </button>
-          </div>
 
           {/* Memory Reset */}
           <div className="flex items-start justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
