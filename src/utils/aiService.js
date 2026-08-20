@@ -208,7 +208,7 @@ ATURAN JAWABAN:
             }
           }
 
-          currentHistory.push({ role: 'function', parts: functionResponses });
+          currentHistory.push({ role: 'user', parts: functionResponses });
           result = await model.generateContent({ contents: currentHistory });
           
           if (result.response.candidates?.[0]?.content) {
