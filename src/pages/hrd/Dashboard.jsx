@@ -27,6 +27,9 @@ export default function HrdDashboard() {
   const [lineStartDate, setLineStartDate] = useState(todayDateStr);
   const [lineEndDate, setLineEndDate] = useState(todayDateStr);
 
+  const monthsIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const currentMonthName = `${monthsIndo[new Date().getMonth()]} ${new Date().getFullYear()}`;
+
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
@@ -224,7 +227,7 @@ export default function HrdDashboard() {
           </div>
           <div>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Draft Payroll Aktif</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-white">Juli 2026</p>
+            <p className="text-2xl font-bold text-slate-800 dark:text-white">{currentMonthName}</p>
           </div>
         </div>
       </div>
